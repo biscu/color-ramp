@@ -96,24 +96,36 @@ function hexToHsb(hex: string) {
   return rgbToHsb(rgb.r, rgb.g, rgb.b);
 }
 
+function getContrastYIQ(hexcolor: string) {
+  const r = parseInt(hexcolor.slice(1, 3), 16);
+  const g = parseInt(hexcolor.slice(3, 5), 16);
+  const b = parseInt(hexcolor.slice(5, 7), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 255000;
+  return yiq >= 0.5 ? '#000000' : '#FFFFFF';
+}
+
 // Function to calculate contrast for generated colors
 const calculateContrast = (colors: { hex: string; step: number }[], backgroundColor: string) => {
   const AA_CONTRAST_THRESHOLD = 4.5; // Redefine the threshold
   return colors.map((color: { hex: string; step: number }) => {
-    const contrastValue: number = colorContrast(backgroundColor, color.hex); // Inverted: background is the generated color
-    const roundedContrast = parseFloat(contrastValue.toFixed(2)); // Round to two decimal places
-    const textColor = roundedContrast > AA_CONTRAST_THRESHOLD ? '#FFFFFF' : '#000000'; // Use white or black based on contrast
+    const contrastValueWhite: number = colorContrast(color.hex, '#FFFFFF'); // Calculate contrast against white
+    const contrastValueBlack: number = colorContrast(color.hex, '#000000'); // Calculate contrast against black
+    const roundedContrastWhite = parseFloat(contrastValueWhite.toFixed(2)); // Round to two decimal places
+    const roundedContrastBlack = parseFloat(contrastValueBlack.toFixed(2)); // Round to two decimal places
+    const textColor = roundedContrastWhite >= AA_CONTRAST_THRESHOLD ? '#FFFFFF' : '#000000'; // Determine text color
     const step = color.step * 100;
     return {
       color: color.hex,
-      contrast: roundedContrast, // Use the rounded contrast value
+      contrast: roundedContrastWhite, // Use the rounded contrast value against white
       textColor: textColor,
-      step: color.step * 100,
+      step: step,
+      contrastRatioWhite: roundedContrastWhite, // Return the contrast ratio against white
+      contrastRatioBlack: roundedContrastBlack, // Return the contrast ratio against black
     };
   });
 };
 
-// Main component that manages color generation and state based on the provided props.
+// Main com ponent that manages color generation and state based on the provided props.
 function App() {
   const [colors, setColors] = useState<Color[]>([]);
   const [lockHex, setLockHex] = useState("#1FA846");
@@ -168,7 +180,7 @@ function App() {
 
   return (
     <div className="p-8 min-h-screen bg-gray-100">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-6xl">
         <div className="p-6 bg-white rounded-lg shadow-lg">
           <div className="flex gap-2 items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-800">
@@ -206,11 +218,17 @@ function App() {
             </div>
 
             <ul className="h-[632px] bg-neutral-50">
-              {colorContrasts.map(({ color, contrast, textColor, step }, index) => (
+              {colorContrasts.map(({ color, contrast, textColor, step, contrastRatioWhite, contrastRatioBlack }, index) => (
                 <li className="p-3 flex items-center" key={color} style={{ backgroundColor: color, color: textColor }}>
-                  {`${step}, Text: ${textColor}, Background: ${color}, Contrast: ${contrast}`}
+                  {`${step}, Text: ${textColor}, Background: ${color}`}
+                  {contrastRatioWhite > 4.5 && (
+                    <span className="ml-2" style={{ color: textColor }}>Contrast Ratio: {contrastRatioWhite}</span>
+                  )}
+                  {contrastRatioBlack > 4.5 && (
+                    <span className="ml-2" style={{ color: textColor }}>Contrast Ratio: {contrastRatioBlack}</span>
+                  )}
                   {firstSufficientContrast && firstSufficientContrast.color === color && (
-                    <span className="p-1 px-3 rounded-full justify-end bg-white text-black ml-auto">Candidate</span> // Badge for sufficient contrast
+                    <span className="p-1 px-3 rounded-full justify-end bg-white text-black ml-auto">Accent Primary</span> // Badge for sufficient contrast
                   )}
                 </li>
               ))}
